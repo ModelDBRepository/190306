@@ -1,0 +1,30 @@
+﻿This is the readme for the network simulation model associated with the publication
+
+Ho and Truccolo (2016) Interaction between Synaptic Inhibition and Glial-Potassium Dynamics leads to Diverse Seizure Transition Modes in Biophysical Models of Human Focal Seizures, J Comput Neurosci.
+
+This model was contributed by E Ho.
+
+
+This network simulation code is composed of three parts.  Each part is located in a separate subdirectory.  You will need Perl, BASH shell, C++ compiler (we used g++ version 4.4.7), MPI (we used open-MPI 1.8) and openMP (actually we only used 1 thread per MPI task so you can theoretically delete all the openMP pragma statements and the code should still work)  to successfully run the sims.
+
+1. master_control_sims: this is the directory that contains the head script (fig_two_gamma.sh) for running the network simulation.
+
+2. assign_connectivity_c++_code: contains the c++ code which assigns synaptic connectivity between individual model neurons.
+
+3. network_c++_code: contains the c++ code for network simulation.
+
+a. To run the simulation, you have to first compile the c++ source codes in the directories "assign_connectivity_c++_code" and "network_c++_code".  There is a Makefile in each of the two directories and a shell script ("runMake.sh") which loads the required modules and runs the Makefile.  Please pay attention to the comments in Makefile and adjust the Makefile and runMake.sh parameters as required for your local cluster and whether you want to have GABA depletion or not.  Then, compile the c++ code (once in each of the two directories).
+
+b. Once the codes are compiled, go to "assign_connectivity_c++_code" directory and run the "run_cortical_assignment_main.sh" (no arguments required) to assign connectivity parameters.  Before running this shell script, edit the shell script to specify the location where the connectivity template files will be stored.  This script only needs to be run once (running time with a single core: ~ a few seconds).  Subsequent network simulations automatically create custom connectivity files based on the connectivity template files (assuming you keep the connection probabilities fixed).
+
+c. Then, you can go to "master_control_sims" and run the head script "fig_two_gamma.sh" (no arguments required).  Before running the head script, open it and specify the locations of connectivity template files (in step b) and output files.  You can change most of the simulation parameters in this script as well.  (Exceptions: time length of simulation, axonal delay parameter--edit in "fig_two_gamma_run_template.sh" also located in this directory; g_{K},g_{KCa} values--edit in "cortical_assignment.cpp" in "network_c++_code"--search for the comment "CHANGE HERE FOR" for the locations in the code to change, you will have to recompile the code after this change.)  "fig_two_gamma.sh" prepares the output directory, writes the slurm scripts and submits them. 
+
+Notes:
+if you want to change the size of the cortical area simulated. Change the values of XDIM and YDIM in “cortical_assignment.h” in both “assign_connectivity_c++_code” and “network_c++_code” and recompile.  It should(?) be safe to change these values as long as the simulated area is a square (i.e. XDIM=YDIM). Then redo steps a, b and c.  Make sure the total number of neurons is divisible by the number of MPI tasks. (we have once tried up to 256x256 columns)
+
+if you want to change the connectivity from global to local.  Go to “cortical_assignment.cpp” in “assign_connectivity_c++_code”, search for functions “connect_e_e”, “connect_e_i”, “connect_i_e”, “connect_i_i”.  In each of these functions I have used “assign_connect_by_probability_no_prune”, change the arbitrary large distance values (in um) there I have used as a function argument for (almost) global connectivity to ones that are more local. Then redo steps a, b and c. (you can bankrupt your RAM if there are too many columns or the synaptic connections are too dense.)
+
+Please do not try to change the value of CPC (number of cells per column) in the above header files (unless you are prepared to modify “Diffusion.cpp”).  I think the value of 16 is implicitly assumed when calculating diffusion of potassium across the network.
+
+we didn't hard code anywhere in the C++ source to specify the number of MPI tasks (other than that the total number of model neurons should be divisible by the number of MPI tasks).  you can change the number of MPI tasks via modifying the scripts in "master_control_sims", you will also have to regenerate the connectivity template files with the appropriate number of MPI tasks in "assign_connectivity_c++_code".
+(may, 2016)
